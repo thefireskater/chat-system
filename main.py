@@ -14,8 +14,12 @@ class ConnectionManager:
     def disconnect(self, user_id: str):
         del self.active_connections[user_id]
 
-    async def send_direct_message(self, message: str, user_id: str):
-        await self.active_connections[user_id].send_text(message)
+    async def send_direct_message(self, sender_id: str, message: str, receiver_id: str):
+        body = {
+            'senderId': sender_id,
+            'message': message
+        }
+        await self.active_connections[receiver_id].send_text(json.dumps(body))
 
 app = FastAPI()
 manager = ConnectionManager()
@@ -41,4 +45,4 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
             print(f'Heartbeat: {user_id}')
             await manager.connect(websocket, user_id)
         elif data['type'] == 'message':
-            await manager.send_direct_message(data['message'], data['receiverId'])
+            await manager.send_direct_message(user_id, data['message'], data['receiverId'])
