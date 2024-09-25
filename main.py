@@ -29,13 +29,16 @@ html = """
     <body>
         <h1>WebSocket Chat</h1>
         <form action="" onsubmit="sendMessage(event)">
+            <label for="receiverId">Receiver ID</label>
+            <input type="text" id="receiverId" autocomplete="off"/>
+            <label for="messageText">Message</label>
             <input type="text" id="messageText" autocomplete="off"/>
             <button>Send</button>
         </form>
         <ul id='messages'>
         </ul>
         <script>
-            var ws = new WebSocket("ws://localhost:8000/ws");
+            var ws = new WebSocket("ws://localhost:8000/ws/{user_id}");
             ws.onmessage = function(event) {
                 var messages = document.getElementById('messages')
                 var message = document.createElement('li')
@@ -44,9 +47,10 @@ html = """
                 messages.appendChild(message)
             };
             function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
+                var receiverId = document.getElementById("receiverId")
+                var messageText = document.getElementById("messageText")
+                ws.send(JSON.stringify({"type": "message", "receiverId": receiverId.value, "message": messageText.value}))
+                messageText.value = ''
                 event.preventDefault()
             }
         </script>
@@ -55,14 +59,17 @@ html = """
 """
 
 
-@app.get("/")
-async def get():
-    return HTMLResponse(html)
+@app.get("/user/{user_id}")
+async def get(user_id: str):
+    # todo not secure, use jinja2 template
+    return HTMLResponse(html.replace("{user_id}", user_id))
 
 
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
     await websocket.accept()
+    await manager.connect(websocket, user_id)
+
     while True:
         data_json = await websocket.receive_text()
         data = json.loads(data_json)
